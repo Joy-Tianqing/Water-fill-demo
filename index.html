@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ece9e1">
+  <meta name="description" content="一杯水：可随时开关水流的交互视觉实验。">
+  <title>STILL — 接水，随时停下</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#ece9e1;color:#46524c}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;-webkit-font-smoothing:antialiased}
+    canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+    .masthead{position:fixed;z-index:2;top:max(28px,env(safe-area-inset-top));left:clamp(22px,5vw,70px);pointer-events:none}
+    .kicker{margin:0 0 11px;font-size:9px;letter-spacing:.28em;color:#8b928b}.masthead h1{margin:0;font-size:clamp(19px,2.2vw,27px);font-weight:400;letter-spacing:.12em}
+    .edition{position:fixed;z-index:2;top:max(31px,env(safe-area-inset-top));right:clamp(22px,5vw,70px);font-size:9px;letter-spacing:.14em;color:#8b928b}
+    .controls{position:fixed;z-index:3;left:50%;bottom:max(28px,calc(env(safe-area-inset-bottom) + 16px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:13px;width:min(420px,calc(100% - 28px))}
+    #status{margin:0;font-size:11px;letter-spacing:.05em;color:#68766e;text-align:center}.row{display:flex;gap:10px}
+    button{appearance:none;border:1px solid rgba(65,82,72,.17);border-radius:999px;min-height:52px;padding:0 22px;background:rgba(248,248,241,.72);color:#46564d;font:500 12px/1 inherit;letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(13px);box-shadow:0 4px 14px rgba(45,62,50,.05);touch-action:manipulation}
+    button.primary{min-width:150px;color:#f5f6ef;background:#4b6355;border-color:#4b6355}button:disabled{opacity:.55;cursor:default}button:active:not(:disabled){transform:scale(.97)}button:focus-visible{outline:2px solid #5b7864;outline-offset:4px}
+    @media(max-height:520px){.masthead{top:18px}.edition{top:20px}.controls{bottom:12px;gap:8px}button{min-height:44px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="水龙头向透明玻璃杯注水的动画"></canvas>
+  <header class="masthead"><p class="kicker">WATER STUDY / 002</p><h1>一杯水的时间</h1></header>
+  <div class="edition">交互视觉实验</div>
+  <div class="controls" role="group" aria-label="水龙头控制">
+    <p id="status" role="status" aria-live="polite">点击开关，开始接水。</p>
+    <div class="row"><button id="toggle" class="primary" type="button" aria-pressed="false">开始流水</button><button id="reset" type="button">刷新清空</button></div>
+  </div>
+  <noscript>请启用 JavaScript 以使用接水演示。</noscript>
+  <script>
+  (()=>{
+    const canvas=document.querySelector('#scene'),ctx=canvas.getContext('2d'),toggle=document.querySelector('#toggle'),reset=document.querySelector('#reset'),status=document.querySelector('#status');
+    const STEP=1/120,FLOW=.105,FALL=4.0,GRAVITY=8.8;let dpr=1,w=0,h=0,run=false,fill=0,emitted=0,source=0,time=0,last=0,acc=0,packets=[],ripples=[];
+    const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n)),mix=(a,b,t)=>a+(b-a)*t;
+    function layout(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+    function geometry(){const s=Math.min(w/430,h/700),cx=w/2,base=Math.min(h*.77,h-145),glassW=190*s,glassH=245*s;return{s,cx,base,glassW,glassH,left:cx-glassW/2,top:base-glassH,nozzleY:Math.max(130*s,glassH*.1),nozzleX:cx+8*s}}
+    function step(){time+=STEP;const target=run&&emitted<1?1:0;source+=(target-source)*(1-Math.exp(-STEP*(target?16:27)));if(!target&&source<.002)source=0;const amount=Math.min(1-emitted,source*FLOW*STEP);if(amount>0){packets.push({t:time,v:amount});emitted+=amount}if(emitted>=.999999)run=false;const g=geometry(),surface=g.base-10*g.s-fill*(g.glassH-24*g.s);let landed=0,keep=[];for(const p of packets){const age=time-p.t,y=g.nozzleY+FALL*70*g.s*age+.5*GRAVITY*70*g.s*age*age;if(y>=surface){landed+=p.v}else keep.push(p)}packets=keep;if(landed){fill=clamp(fill+landed);ripples.push({t:time,a:Math.min(1,landed/(FLOW*STEP))})}if(!packets.length&&emitted>=.999999)fill=1;sync()}
+    function sync(){const full=emitted>=.999999;toggle.disabled=full;toggle.setAttribute('aria-pressed',String(run));toggle.textContent=full?'已盛满':run?'暂停水流':emitted>0?'继续流水':'开始流水';status.textContent=fill>=.999999?'水杯已满，点击刷新重新接水。':full?'最后的水滴正在落下…':run?'正在接水，再次点击即可暂停。':packets.length?'已关水，空中的余水仍会落下。':emitted?'已暂停，杯中的水会保留。':'点击开关，开始接水。'}
+    function rounded(x,y,W,H,r){ctx.beginPath();ctx.roundRect(x,y,W,H,r)}
+    function draw(){const g=geometry(),{s,cx,base,glassW,glassH,left,top,nozzleX,nozzleY}=g;ctx.clearRect(0,0,w,h);const bg=ctx.createRadialGradient(cx,h*.48,20,cx,h*.48,Math.max(w,h)*.7);bg.addColorStop(0,'#f8f7f0');bg.addColorStop(1,'#dfddd5');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+      ctx.save();ctx.shadowColor='rgba(45,52,45,.18)';ctx.shadowBlur=18*s;ctx.shadowOffsetY=12*s;ctx.fillStyle='rgba(91,99,91,.12)';ctx.beginPath();ctx.ellipse(cx,base+14*s,glassW*.62,16*s,0,0,Math.PI*2);ctx.fill();ctx.restore();
+      ctx.save();ctx.strokeStyle='#68736e';ctx.lineWidth=16*s;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(nozzleX-115*s,nozzleY-72*s);ctx.lineTo(nozzleX-25*s,nozzleY-72*s);ctx.quadraticCurveTo(nozzleX+6*s,nozzleY-72*s,nozzleX+6*s,nozzleY-38*s);ctx.lineTo(nozzleX+6*s,nozzleY);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=3*s;ctx.stroke();
+      ctx.fillStyle='#56635c';rounded(nozzleX-45*s,nozzleY-91*s,56*s,11*s,5*s);ctx.fill();ctx.restore();
+      if(source>.002||packets.length){ctx.save();ctx.lineCap='round';for(const p of packets){const age=time-p.t,y=nozzleY+FALL*70*s*age+.5*GRAVITY*70*s*age*age;ctx.strokeStyle=`rgba(112,190,215,${.2+.55*Math.min(1,p.v/(FLOW*STEP))})`;ctx.lineWidth=(5+6*Math.min(1,p.v/(FLOW*STEP)))*s;ctx.beginPath();ctx.moveTo(nozzleX,nozzleY);ctx.lineTo(nozzleX+Math.sin(age*18)*2*s,Math.min(y,base));ctx.stroke()}ctx.restore()}
+      ctx.save();rounded(left,top,glassW,glassH,20*s);ctx.clip();if(fill>0){const waterH=fill*(glassH-24*s),y=base-10*s-waterH,grad=ctx.createLinearGradient(0,y,0,base);grad.addColorStop(0,'rgba(113,201,226,.60)');grad.addColorStop(1,'rgba(65,150,190,.36)');ctx.fillStyle=grad;ctx.fillRect(left+7*s,y,glassW-14*s,waterH+4*s);ctx.strokeStyle='rgba(220,251,255,.8)';ctx.lineWidth=2*s;ctx.beginPath();for(let x=left+6*s;x<=left+glassW-6*s;x+=3){const age=time-(ripples.at(-1)?.t||0),amp=5*s*Math.exp(-age*2.4);const yy=y+Math.sin((x-left)*.08+age*10)*amp;ctx.lineTo(x,yy)}ctx.stroke()}ctx.restore();
+      const glass=ctx.createLinearGradient(left,0,left+glassW,0);glass.addColorStop(0,'rgba(255,255,255,.68)');glass.addColorStop(.18,'rgba(255,255,255,.08)');glass.addColorStop(.75,'rgba(150,184,187,.08)');glass.addColorStop(1,'rgba(255,255,255,.65)');ctx.fillStyle=glass;rounded(left,top,glassW,glassH,20*s);ctx.fill();ctx.strokeStyle='rgba(116,146,145,.48)';ctx.lineWidth=2*s;ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=3*s;ctx.beginPath();ctx.moveTo(left+18*s,top+20*s);ctx.lineTo(left+18*s,base-35*s);ctx.stroke();ctx.beginPath();ctx.ellipse(cx,top+5*s,glassW*.47,9*s,0,0,Math.PI*2);ctx.stroke();
+    }
+    function frame(now){requestAnimationFrame(frame);if(!last)last=now;acc+=Math.min(.1,(now-last)/1000);last=now;while(acc>=STEP){step();acc-=STEP}draw()}
+    toggle.addEventListener('click',()=>{run=!run;sync()});reset.addEventListener('click',()=>{run=false;fill=emitted=source=time=acc=0;packets=[];ripples=[];sync();draw()});addEventListener('resize',layout,{passive:true});document.addEventListener('visibilitychange',()=>{last=performance.now();acc=0});
+    window.__waterDemo={start(){run=true;sync()},pause(){run=false;sync()},reset(){reset.click()},get state(){return{running:run,fraction:fill,emitted,inFlight:Math.max(0,emitted-fill)}}};layout();sync();requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>
