@@ -1,0 +1,16 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let now=0,frame;const listeners={};
+const ctx=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(o,k)=>o[k]||(()=>{})});
+const nodes=Object.fromEntries(['scene','toggle','reset','status','result'].map(id=>[id,{textContent:'',disabled:false,hidden:false,handlers:{},setAttribute(){},addEventListener(k,f){this.handlers[k]=f},getContext:()=>ctx}]));
+const document={hidden:false,querySelector:s=>nodes[s.slice(1)],addEventListener:(k,f)=>listeners[k]=f};
+vm.runInNewContext(fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1],{document,performance:{now:()=>now},requestAnimationFrame:f=>frame=f,innerWidth:390,innerHeight:844,devicePixelRatio:1,addEventListener(){}});
+const click=id=>nodes[id].handlers.click({});
+const advance=ms=>{for(let i=0;i<ms;i+=10){now+=10;frame(now)}};
+assert.equal(nodes.toggle.textContent,'开始透明试接');assert.equal(nodes.reset.hidden,true);
+click('toggle');advance(700);assert.equal(nodes.toggle.textContent,'关水');
+click('toggle');assert.equal(nodes.result.textContent,'');advance(500);assert.match(nodes.result.textContent,/%/);assert.equal(nodes.reset.hidden,false);
+click('reset');assert.equal(nodes.toggle.textContent,'开始正式挑战');assert.equal(nodes.result.textContent,'');
+click('toggle');advance(700);click('toggle');advance(500);assert.equal(nodes.result.textContent,'D');
+click('toggle');assert.equal(nodes.result.textContent,'');click('toggle');advance(700);document.hidden=true;listeners.visibilitychange();assert.match(nodes.status.textContent,/中断/);assert.equal(nodes.result.textContent,'');click('toggle');assert.equal(nodes.toggle.textContent,'开始正式挑战');
+assert.doesNotMatch(fs.readFileSync('index.html','utf8'),/<script[^>]+src=|<link|fetch\(|XMLHttpRequest|https?:\/\//);
+console.log('PASS: trial gate, preparation, delayed feedback, formal reset, grade, retry, interruption, static external dependency audit (mock DOM; no visual proof)');
