@@ -4,6 +4,12 @@
 
 直接打开 `index.html` 即可运行，无构建步骤、无外部依赖。
 
+## 产品与技术文档
+
+- [PRD v0.2](docs/PRD-v0.2.md)
+- [Web 技术方案](docs/web-technical-design.md)
+- [iOS 技术方案](docs/ios-technical-design.md)
+
 ## 发布
 
 仓库根目录可直接作为 GitHub Pages 的发布源。
